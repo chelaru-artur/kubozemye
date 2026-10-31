@@ -13,6 +13,8 @@ import { UI } from './ui.js';
 import { CHUNK_HEIGHT, CHUNK_SIZE, World, chunkKey } from './world.js';
 
 const SAVE_KEY = 'kubozemye.save.v1';
+// Страница проверки релиза запускает игру с ?check: отдельный мир, сохранение игрока не затрагивается.
+const CHECK_MODE = new URLSearchParams(window.location.search).has('check');
 const DAY_LENGTH = 720; // секунд на полные сутки
 const REACH = 5;
 const ATTACK_REACH = 3.6;
@@ -74,6 +76,7 @@ const HINTS = [
 ];
 
 function loadSave() {
+  if (CHECK_MODE) return { seed: 4242 };
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -238,7 +241,7 @@ export class Game {
   }
 
   save() {
-    if (!this.hasStarted) return;
+    if (!this.hasStarted || CHECK_MODE) return;
     try {
       const p = this.player;
       localStorage.setItem(SAVE_KEY, JSON.stringify({
@@ -275,7 +278,9 @@ export class Game {
     this.input.reset();
     this.input.active = true;
     this.ui.setScreen('hud');
-    if (this.input.touchMode) {
+    if (CHECK_MODE) {
+      this.sound.muted = true;
+    } else if (this.input.touchMode) {
       document.documentElement.requestFullscreen?.()?.catch?.(() => {});
       navigator.wakeLock?.request?.('screen')?.catch?.(() => {});
     } else {
@@ -313,7 +318,7 @@ export class Game {
       this.input.reset();
       this.input.active = true;
       this.ui.setScreen('hud');
-      this.input.lock();
+      if (!CHECK_MODE) this.input.lock();
       this.ui.renderHotbar(this.inventory);
       this.#updateHand();
     }

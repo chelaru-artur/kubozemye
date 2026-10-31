@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <title>Кубоземье: проверка релиза</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#1b1916">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Mono&amp;family=Press+Start+2P&amp;display=swap">
+  <style>
+    /* Журнал проверки в каменной гамме игры: сверху вердикт, ниже доказательства. */
+    :root {
+      color-scheme: dark;
+      --bg: #1b1916; --slab: #2b2823; --slab-light: #453f35; --edge: #0f0e0c;
+      --text: #f1ead8; --muted: #b5ab95; --grass: #93c956; --gold: #f2c744; --danger: #ff7a66;
+      --display: "Press Start 2P", "Courier New", monospace;
+      --body: "PT Mono", "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 var(--body);
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left));
+    }
+    main { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px; }
+    a { color: var(--gold); }
+    h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; line-height: 1.35; }
+    h1 { font-size: clamp(15px, 4vw, 22px); color: var(--grass); }
+    h2 { font-size: 13px; color: var(--gold); margin-bottom: 12px; }
+    section { min-width: 0; }
+    button { font: inherit; color: inherit; cursor: pointer; min-height: 44px; padding: 8px 14px; background: var(--slab-light); border: 2px solid var(--edge); }
+    button:hover { background: #544c40; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    header { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: baseline; }
+
+    #verdict { padding: 14px 16px; background: var(--slab); border: 2px solid var(--edge); border-left: 8px solid var(--muted); display: grid; gap: 4px; }
+    #verdict[data-state="pass"] { border-left-color: var(--grass); }
+    #verdict[data-state="warn"] { border-left-color: var(--gold); }
+    #verdict[data-state="fail"] { border-left-color: var(--danger); }
+    #verdict-title { font-size: 22px; font-weight: 700; }
+    #verdict-note { color: var(--muted); }
+
+    .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+    @media (max-width: 800px) { .columns { grid-template-columns: minmax(0, 1fr); } }
+
+    dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; }
+    dt { color: var(--muted); }
+    dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+    ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+    .check { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; padding: 7px 8px; background: var(--slab); }
+    .badge { font-size: 13px; font-weight: 700; text-align: center; padding: 1px 0; align-self: start; color: var(--edge); background: var(--muted); }
+    .check[data-state="pass"] .badge { background: var(--grass); }
+    .check[data-state="warn"] .badge { background: var(--gold); }
+    .check[data-state="fail"] .badge { background: var(--danger); }
+    .check[data-state="run"] .badge { background: var(--text); }
+    .detail { display: block; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+
+    #frame-wrap { position: relative; width: 100%; height: clamp(380px, 56vh, 520px); border: 2px solid var(--edge); background: #080d20; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .hint { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+    label.manual { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; padding: 9px 8px; background: var(--slab); cursor: pointer; }
+    label.manual input { width: 22px; height: 22px; margin: 0; accent-color: var(--grass); }
+    #report { width: 100%; margin-top: 8px; min-height: 120px; font: 13px/1.35 var(--body); color: var(--text); background: var(--slab); border: 2px solid var(--edge); padding: 8px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Проверка релиза</h1>
+    <a href="../">Открыть игру</a>
+  </header>
+
+  <div id="verdict" data-state="run" role="status">
+    <span id="verdict-title">Идёт проверка…</span>
+    <span id="verdict-note">Не закрывай страницу: тестовый мир уже запускается.</span>
+  </div>
+
+  <div class="columns">
+    <section>
+      <h2>Что опубликовано</h2>
+      <dl>
+        <dt>Коммит</dt><dd id="r-commit">…</dd>
+        <dt>Описание</dt><dd id="r-message">…</dd>
+        <dt>Собрано</dt><dd id="r-built">…</dd>
+        <dt>Сборка</dt><dd id="r-run">…</dd>
+        <dt>Устройство</dt><dd id="r-device">…</dd>
+      </dl>
+      <h2 style="margin-top:20px">Автопроверки</h2>
+      <ul id="checks"></ul>
+      <div class="actions"><button id="btn-rerun" type="button">Проверить заново</button></div>
+    </section>
+
+    <section>
+      <h2>Тестовый мир</h2>
+      <div id="frame-wrap"></div>
+      <p class="hint">Отдельный мир только для проверки. Твоё сохранение он не меняет. После автопроверок можно поиграть здесь же.</p>
+
+      <h2 style="margin-top:20px">Проверь руками</h2>
+      <ul id="manual"></ul>
+      <p class="hint" id="manual-note"></p>
+
+      <h2 style="margin-top:20px">Отчёт</h2>
+      <div class="actions"><button id="btn-copy" type="button">Скопировать отчёт</button></div>
+      <textarea id="report" readonly aria-label="Текст отчёта"></textarea>
+    </section>
+  </div>
+</main>
+
+<script>
+const REPO = 'chelaru-artur/kubozemye';
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const BADGE = { pass: 'ОК', warn: 'ВНИМ.', fail: 'СБОЙ', run: '…', skip: 'НЕТ', wait: '' };
+
+const MANUAL = [
+  'На телефоне: джойстик ведёт, а второй палец поворачивает камеру',
+  'Удержание кирки добывает дерево, землю и камень',
+  'Из дерева получаются доски, и из них строится стена',
+  'Дверь ставится и открывается, сквозь закрытую не пройти',
+  'Ночью приходят зомби, а в закрытом доме не могут ударить',
+  'После перезагрузки игры постройка и вещи на месте',
+  'Игра идёт плавно, звук работает, кнопки не мешают',
+];
+
+let release = null;
+let results = [];
+let runId = 0;
+
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function storageSet(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* чек-лист просто не запомнится */ }
+}
+
+function addCheck(name) {
+  const entry = { name, state: 'wait', detail: '' };
+  const li = document.createElement('li');
+  li.className = 'check';
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  const text = document.createElement('span');
+  const detail = document.createElement('span');
+  detail.className = 'detail';
+  text.append(name, detail);
+  li.append(badge, text);
+  $('checks').append(li);
+  entry.update = (state, info = '') => {
+    entry.state = state;
+    entry.detail = info;
+    li.dataset.state = state;
+    badge.textContent = BADGE[state];
+    detail.textContent = info;
+    renderSummary();
+  };
+  entry.update('wait');
+  results.push(entry);
+  return entry;
+}
+
+// Каждая проверка возвращает [состояние, подробность] или бросает ошибку (это сбой).
+async function runCheck(entry, id, fn, timeoutMs = 20000) {
+  if (id !== runId) return false;
+  entry.update('run');
+  try {
+    const outcome = await Promise.race([
+      fn(),
+      sleep(timeoutMs).then(() => { throw new Error(`нет результата за ${timeoutMs / 1000} с`); }),
+    ]);
+    if (id === runId) entry.update(outcome[0], outcome[1]);
+    return outcome[0] !== 'fail';
+  } catch (error) {
+    if (id === runId) entry.update('fail', error.message);
+    return false;
+  }
+}
+
+async function until(fn, what, timeoutMs = 10000) {
+  const started = performance.now();
+  while (performance.now() - started < timeoutMs) {
+    const value = fn();
+    if (value) return value;
+    await sleep(60);
+  }
+  throw new Error(what);
+}
+
+function renderSummary() {
+  const states = results.map((r) => r.state);
+  const running = states.some((s) => s === 'run' || s === 'wait');
+  const fails = results.filter((r) => r.state === 'fail');
+  const warns = results.filter((r) => r.state === 'warn');
+  const passed = states.filter((s) => s === 'pass').length;
+  const manualDone = MANUAL.filter((_, i) => isChecked(i)).length;
+  const manualNote = `Вручную: ${manualDone} из ${MANUAL.length}.`;
+
+  const verdict = $('verdict');
+  if (running) {
+    verdict.dataset.state = 'run';
+    $('verdict-title').textContent = `Идёт проверка: ${passed} из ${results.length}`;
+    $('verdict-note').textContent = 'Не закрывай страницу: тестовый мир уже запущен.';
+  } else if (fails.length) {
+    verdict.dataset.state = 'fail';
+    $('verdict-title').textContent = `Релиз с проблемой: ${fails.length} ${fails.length === 1 ? 'сбой' : 'сбоя(ев)'}`;
+    $('verdict-note').textContent = `${fails.map((f) => f.name).join('; ')}. ${manualNote}`;
+  } else if (manualDone < MANUAL.length) {
+    verdict.dataset.state = 'warn';
+    $('verdict-title').textContent = 'Автопроверки пройдены, остались ручные';
+    $('verdict-note').textContent = `${passed} из ${results.length} авто${warns.length ? `, предупреждений: ${warns.length}` : ''}. ${manualNote}`;
+  } else {
+    verdict.dataset.state = warns.length ? 'warn' : 'pass';
+    $('verdict-title').textContent = warns.length ? 'Релиз проверен, есть предупреждения' : 'Релиз проверен на этом устройстве';
+    $('verdict-note').textContent = `${passed} из ${results.length} авто. ${manualNote}`;
+  }
+  renderReport();
+}
+
+function renderReport() {
+  const lines = [
+    `Кубоземье, коммит ${release?.commit?.slice(0, 7) ?? 'неизвестен'}`,
+    `Устройство: ${navigator.userAgent}`,
+    `Итог: ${$('verdict-title').textContent}`,
+    '',
+    ...results.map((r) => `[${BADGE[r.state] || '-'}] ${r.name}${r.detail ? `: ${r.detail}` : ''}`),
+    '',
+    ...MANUAL.map((item, i) => `[${isChecked(i) ? 'x' : ' '}] ${item}`),
+  ];
+  $('report').value = lines.join('\n');
+}
+
+function manualKey(i) {
+  return `kubozemye.release.${release?.commit ?? 'local'}.${i}`;
+}
+function isChecked(i) {
+  return storageGet(manualKey(i)) === '1';
+}
+function renderManual() {
+  const list = $('manual');
+  list.replaceChildren();
+  MANUAL.forEach((item, i) => {
+    const li = document.createElement('li');
+    const label = document.createElement('label');
+    label.className = 'manual';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = `manual-${i}`;
+    input.checked = isChecked(i);
+    input.addEventListener('change', () => {
+      storageSet(manualKey(i), input.checked ? '1' : '0');
+      renderSummary();
+    });
+    const text = document.createElement('span');
+    text.textContent = item;
+    label.append(input, text);
+    li.append(label);
+    list.append(li);
+  });
+  $('manual-note').textContent = 'Отметки хранятся на этом устройстве и сбрасываются с новым коммитом.';
+}
+
+function link(parent, href, text) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.textContent = text;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  parent.replaceChildren(a);
+}
+
+function describeDevice() {
+  const touch = window.matchMedia('(pointer: coarse)').matches ? 'сенсорный экран' : 'мышь';
+  return `${window.innerWidth}×${window.innerHeight}, ${touch}, плотность ${window.devicePixelRatio}`;
+}
+
+async function loadRelease() {
+  const response = await fetch(`../release.json?t=${Date.now()}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`release.json: код ${response.status}`);
+  release = await response.json();
+  link($('r-commit'), `https://github.com/${REPO}/commit/${release.commit}`, release.commit.slice(0, 7));
+  $('r-message').textContent = release.message;
+  $('r-built').textContent = new Date(release.builtAt).toLocaleString('ru-RU');
+  if (release.runUrl) link($('r-run'), release.runUrl, `№ ${release.runNumber}`);
+  else $('r-run').textContent = 'локальная';
+  renderManual();
+}
+
+async function runAll() {
+  const id = ++runId;
+  results = [];
+  $('checks').replaceChildren();
+  $('r-device').textContent = describeDevice();
+
+  const c = {
+    tests: addCheck('Тесты этого коммита'),
+    latest: addCheck('Опубликован последний коммит main'),
+    webgl: addCheck('Устройство поддерживает 3D-графику'),
+    storage: addCheck('Браузер может хранить сохранения'),
+    boot: addCheck('Игра загружается'),
+    world: addCheck('Мир построен и виден'),
+    fps: addCheck('Плавность на этом устройстве'),
+    controls: addCheck('Управление на экране'),
+    mine: addCheck('Добыча блока'),
+    place: addCheck('Постройка блока'),
+    craft: addCheck('Создание предмета'),
+    zombieHit: addCheck('Зомби наносит урон'),
+    playerHit: addCheck('Удар по зомби'),
+    night: addCheck('Наступает ночь'),
+    saveData: addCheck('Постройки переживают сохранение'),
+    errors: addCheck('Нет ошибок во время игры'),
+  };
+
+  await runCheck(c.tests, id, async () => {
+    await loadRelease();
+    const t = release.tests;
+    return [t.fail === 0 && t.total > 0 ? 'pass' : 'fail', `${t.pass} из ${t.total}`];
+  });
+
+  await runCheck(c.latest, id, async () => {
+    if (!release) return ['fail', 'нет данных о релизе'];
+    let head;
+    try {
+      const response = await fetch(`https://api.github.com/repos/${REPO}/commits/main`, { cache: 'no-store' });
+      if (!response.ok) throw new Error();
+      head = (await response.json()).sha;
+    } catch {
+      return ['warn', 'GitHub не ответил, сравнить не удалось'];
+    }
+    return head === release.commit
+      ? ['pass', head.slice(0, 7)]
+      : ['warn', `в main уже ${head.slice(0, 7)}: новая версия ещё публикуется или сборка упала`];
+  }, 10000);
+
+  await runCheck(c.webgl, id, async () => {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return ['warn', 'нет WebGL 2, игра работает через WebGL 1'];
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    return ['pass', info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'WebGL 2'];
+  });
+
+  await runCheck(c.storage, id, async () => {
+    const key = 'kubozemye.release.probe';
+    localStorage.setItem(key, '1');
+    const ok = localStorage.getItem(key) === '1';
+    localStorage.removeItem(key);
+    return ok ? ['pass', 'запись и чтение работают'] : ['fail', 'записанное не читается'];
+  });
+
+  const frame = document.createElement('iframe');
+  frame.title = 'Тестовый мир';
+  frame.src = `../?check=${Date.now()}`;
+  const runtimeErrors = [];
+  const loaded = new Promise((resolve, reject) => {
+    frame.addEventListener('load', resolve);
+    frame.addEventListener('error', () => reject(new Error('страница игры не открылась')));
+  });
+  $('frame-wrap').replaceChildren(frame);
+
+  let win = null;
+  let game = null;
+  const booted = await runCheck(c.boot, id, async () => {
+    await loaded;
+    win = frame.contentWindow;
+    win.addEventListener('error', (e) => runtimeErrors.push(e.message));
+    win.addEventListener('unhandledrejection', (e) => runtimeErrors.push(String(e.reason)));
+    const fatal = win.document.getElementById('fatal');
+    if (fatal && !fatal.hidden) throw new Error(fatal.textContent);
+    game = await until(() => win.game, 'игра не запустилась');
+    return ['pass', `Three.js r${win.THREE.REVISION}`];
+  }, 30000);
+
+  const dependents = [c.world, c.fps, c.controls, c.mine, c.place, c.craft, c.zombieHit, c.playerHit, c.night, c.errors];
+  if (!booted) {
+    if (id === runId) dependents.forEach((entry) => entry.update('fail', 'игра не запустилась'));
+    return;
+  }
+
+  game.play();
+  const p = game.player;
+
+  await runCheck(c.world, id, async () => {
+    await until(() => game.meshes.size >= 9, 'участки мира не построены', 20000);
+    return ['pass', `участков: ${game.meshes.size}`];
+  }, 25000);
+
+  await runCheck(c.fps, id, async () => {
+    const fps = await new Promise((resolve) => {
+      let frames = 0;
+      const started = win.performance.now();
+      const tick = () => {
+        frames++;
+        const elapsed = win.performance.now() - started;
+        if (elapsed >= 3000) resolve((frames * 1000) / elapsed);
+        else win.requestAnimationFrame(tick);
+      };
+      win.requestAnimationFrame(tick);
+    });
+    const text = `${Math.round(fps)} кадров в секунду`;
+    return [fps >= 24 ? 'pass' : 'warn', fps >= 24 ? text : `${text}: мало, игра снизит качество`];
+  });
+
+  await runCheck(c.controls, id, async () => {
+    const doc = win.document;
+    const visible = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= win.innerWidth + 1 && r.bottom <= win.innerHeight + 1;
+    };
+    const slots = [...doc.querySelectorAll('#hotbar .slot'), doc.getElementById('btn-bag')];
+    if (!slots.every(visible)) return ['fail', 'панель предметов выходит за экран'];
+    if (!game.input.touchMode) return ['pass', 'панель предметов на экране'];
+    const buttons = [...doc.querySelectorAll('[data-action]')];
+    return buttons.every(visible) ? ['pass', 'кнопки и панель на экране'] : ['fail', 'кнопки выходят за экран'];
+  });
+
+  // Дальше игрока ведём сами: те же поля, что заполняют мышь и пальцы.
+  const clearArena = () => {
+    const x = Math.floor(p.pos.x);
+    const y = Math.max(Math.floor(p.pos.y), 30);
+    const z = Math.floor(p.pos.z);
+    for (let dx = -4; dx <= 4; dx++) {
+      for (let dz = -4; dz <= 4; dz++) {
+        game.world.set(x + dx, y - 1, z + dz, 3);
+        for (let dy = 0; dy < 4; dy++) game.world.set(x + dx, y + dy, z + dz, 0);
+      }
+    }
+    p.pos.x = x + 0.5;
+    p.pos.y = y;
+    p.pos.z = z + 0.5;
+    p.vel.x = p.vel.y = p.vel.z = 0;
+    p.yaw = 0;
+    p.hp = 20;
+    game.mobs.clear();
+  };
+
+  clearArena();
+  await sleep(300);
+
+  await runCheck(c.mine, id, async () => {
+    p.pitch = -1.5;
+    await sleep(100);
+    const before = game.inventory.slots.reduce((sum, slot) => sum + (slot?.n ?? 0), 0);
+    game.input.mine = true;
+    try {
+      await until(() => game.inventory.slots.reduce((sum, slot) => sum + (slot?.n ?? 0), 0) > before, 'блок не добылся за 8 с', 8000);
+    } finally {
+      game.input.mine = false;
+    }
+    return ['pass', `в рюкзаке: ${game.inventory.slots.filter(Boolean).map((s) => `${s.n} шт.`).join(', ')}`];
+  });
+
+  clearArena();
+  await sleep(300);
+
+  await runCheck(c.place, id, async () => {
+    p.pitch = -0.9;
+    game.inventory.add(3, 5);
+    game.selectSlot(game.inventory.slots.findIndex((slot) => slot?.id === 3) % 9);
+    await sleep(100);
+    const before = game.stats.placed;
+    game.input.place = true;
+    try {
+      await until(() => game.stats.placed > before, 'блок не поставился', 4000);
+    } finally {
+      game.input.place = false;
+    }
+    return ['pass', 'блок на месте, в рюкзаке на один меньше'];
+  });
+
+  await runCheck(c.craft, id, async () => {
+    game.inventory.add(4, 1);
+    const before = game.inventory.count(7);
+    game.toggleInventory();
+    await sleep(100);
+    const row = [...win.document.querySelectorAll('.recipe')].find((el) => el.textContent.includes('Доски') && !el.disabled);
+    if (!row) throw new Error('рецепт досок недоступен');
+    row.click();
+    await sleep(100);
+    game.toggleInventory();
+    const made = game.inventory.count(7) - before;
+    return made === 4 ? ['pass', 'из дерева получилось 4 доски'] : ['fail', `получилось досок: ${made}`];
+  });
+
+  clearArena();
+  await sleep(200);
+
+  await runCheck(c.zombieHit, id, async () => {
+    game.mobs.add('zombie', p.pos.x, p.pos.y, p.pos.z - 2.5);
+    await until(() => p.hp < 20, 'зомби не подошёл или не ударил', 10000);
+    return ['pass', `здоровье: ${p.hp} из 20`];
+  }, 12000);
+
+  clearArena();
+  await sleep(200);
+
+  await runCheck(c.playerHit, id, async () => {
+    p.pitch = 0;
+    const mob = game.mobs.add('zombie', p.pos.x, p.pos.y, p.pos.z - 2);
+    mob.type = { ...mob.type, damage: 0 };
+    await sleep(100);
+    game.input.mine = true;
+    try {
+      await until(() => mob.hp < 20, 'удар не прошёл', 5000);
+    } finally {
+      game.input.mine = false;
+    }
+    return ['pass', `у зомби осталось ${mob.hp} из 20`];
+  }, 8000);
+
+  await runCheck(c.night, id, async () => {
+    p.hp = 20;
+    game.mobs.clear();
+    game.time = 0.97;
+    await until(() => game.uniforms.uDay.value < 0.3, 'мир не потемнел', 3000);
+    return ['pass', `освещение ${Math.round(game.uniforms.uDay.value * 100)}%`];
+  });
+
+  await runCheck(c.saveData, id, async () => {
+    const World = game.world.constructor;
+    const x = Math.floor(p.pos.x);
+    const z = Math.floor(p.pos.z);
+    game.world.set(x, 60, z, 8);
+    const restored = new World(game.world.seed, World.parseEdits(JSON.parse(JSON.stringify(game.world.serializeEdits()))));
+    restored.ensureChunk(Math.floor(x / 16), Math.floor(z / 16));
+    return restored.get(x, 60, z) === 8
+      ? ['pass', 'блок восстановлен из сохранённых данных']
+      : ['fail', 'блок потерялся'];
+  });
+
+  await runCheck(c.errors, id, async () => (runtimeErrors.length
+    ? ['fail', [...new Set(runtimeErrors)].slice(0, 3).join('; ')]
+    : ['pass', 'за всё время проверки']));
+
+  if (id === runId) {
+    game.time = 0.3;
+    p.hp = 20;
+  }
+}
+
+$('btn-rerun').addEventListener('click', runAll);
+$('btn-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('report').value);
+    $('btn-copy').textContent = 'Скопировано';
+  } catch {
+    $('report').select();
+    $('btn-copy').textContent = 'Выделено, скопируй вручную';
+  }
+  setTimeout(() => { $('btn-copy').textContent = 'Скопировать отчёт'; }, 2000);
+});
+
+renderManual();
+runAll();
+</script>
+</body>
+</html>

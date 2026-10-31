@@ -27,8 +27,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
       - run: npm run build
+      # Запускает тесты и записывает их результат для страницы проверки релиза.
+      - run: npm run release-info
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
