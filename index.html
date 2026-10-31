@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <title>Кубоземье</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#080d20">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Mono&amp;family=Press+Start+2P&amp;display=swap">
+</head>
+<body>
+  <canvas id="game" tabindex="-1" aria-label="Игровой мир"></canvas>
+
+  <div id="hud" hidden>
+    <div id="crosshair"></div>
+    <div id="mine-bar" hidden><i></i></div>
+    <div id="top-left">
+      <div id="hearts" role="img" aria-label="Здоровье"></div>
+      <div id="clock"></div>
+    </div>
+    <div id="hint" hidden></div>
+    <div id="toast" hidden></div>
+    <button id="btn-pause" class="hud-control" type="button" aria-label="Пауза">
+      <svg width="18" height="18" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="#f1ead8" d="M1 0h2v8H1zM5 0h2v8H5z"/></svg>
+    </button>
+
+    <div id="touch">
+      <div id="stick"><div id="stick-knob"></div></div>
+      <div id="actions" class="hud-control">
+        <button class="act" type="button" data-action="place" aria-label="Поставить блок или открыть дверь">
+          <svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#b98a55" d="M2 5h12v9H2z"/><path fill="#84b84c" d="M2 2h12v4H2z"/><path fill="#f1ead8" d="M7 6h2v3h3v2H9v3H7v-3H4V9h3z"/></svg>
+        </button>
+        <button class="act" type="button" data-action="mine" aria-label="Копать или бить">
+          <svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#d6d8de" d="M3 1h8v1h2v1h1v2h1v5h-2V6h-1V4h-2V3H3z"/><path fill="#a0703f" d="M9 5h2v2H9zM8 7h2v2H8zM6 8h2v2H6zM5 10h2v2H5zM3 11h2v2H3zM2 13h2v2H2z"/></svg>
+        </button>
+        <button class="act" type="button" data-action="jump" aria-label="Прыжок">
+          <svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#f1ead8" d="M7 2h2v1h1v1h1v1h1v1h1v2H9v6H7V8H3V6h1V5h1V4h1V3h1z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="hotbar" class="hud-control">
+      <div id="hotbar-slots"></div>
+      <button id="btn-bag" type="button" aria-label="Рюкзак и создание предметов">
+        <svg viewBox="0 0 16 16" shape-rendering="crispEdges"><path fill="#a0703f" d="M3 5h10v10H3z"/><path fill="#7b5430" d="M5 2h6v3H9V4H7v1H5z"/><path fill="#d2a366" d="M5 8h6v3H5z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="underwater" hidden></div>
+  <div id="damage"></div>
+
+  <section id="menu">
+    <div class="menu-panel">
+      <h1 class="logo">Кубоземье</h1>
+      <p class="tagline">Добывай землю, дерево и камень. Построй дом до темноты: ночью выходят зомби.</p>
+      <div class="menu-actions">
+        <button id="btn-play" class="btn primary" type="button">Играть</button>
+        <button id="btn-new" class="btn" type="button" hidden>Новый мир</button>
+      </div>
+      <dl class="controls">
+        <div class="for-mouse">
+          <dt>WASD, мышь</dt><dd>идти и смотреть</dd>
+          <dt>Левая кнопка</dt><dd>копать (держать), бить</dd>
+          <dt>Правая кнопка</dt><dd>ставить блок, дверь, есть</dd>
+          <dt>Пробел, Shift</dt><dd>прыжок, бег</dd>
+          <dt>E, 1–9, колесо</dt><dd>рюкзак, выбор предмета</dd>
+        </div>
+        <div class="for-touch">
+          <dt>Левая половина</dt><dd>идти, до края вперёд — бег</dd>
+          <dt>Правая половина</dt><dd>смотреть</dd>
+          <dt>Кирка</dt><dd>копать (держать), бить</dd>
+          <dt>Блок с плюсом</dt><dd>ставить, открыть дверь, есть</dd>
+          <dt>Сумка</dt><dd>рюкзак и создание предметов</dd>
+        </div>
+      </dl>
+      <div class="menu-foot">
+        <span id="world-label"></span>
+        <button id="btn-sound" class="linkish" type="button">Звук: вкл</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="inventory" hidden>
+    <div class="inv-panel">
+      <div class="inv-head">
+        <h2>Рюкзак</h2>
+        <button id="btn-close-inv" type="button">Закрыть</button>
+      </div>
+      <div>
+        <div id="inv-grid"></div>
+        <p class="inv-help">Верхний ряд — панель в игре. Нажми на предмет, потом на другую ячейку, чтобы переложить.</p>
+      </div>
+      <div>
+        <h3>Создать</h3>
+        <div id="craft-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="death" hidden>
+    <div class="death-panel">
+      <h2>Сердца кончились</h2>
+      <p>Вещи и постройки на месте. Возвращение — на первую точку появления.</p>
+      <button id="btn-respawn" class="btn primary" type="button">Вернуться</button>
+    </div>
+  </section>
+
+  <div id="fatal" hidden></div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
