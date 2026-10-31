@@ -109,6 +109,13 @@
 
   <div id="fatal" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
+  <script>
+    if (!window.THREE) {
+      var fatal = document.getElementById('fatal');
+      fatal.hidden = false;
+      fatal.textContent = 'Не удалось загрузить игру: не открылась графическая библиотека. Проверь интернет и обнови страницу.';
+    }
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

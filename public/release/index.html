@@ -203,7 +203,7 @@ function renderSummary() {
     $('verdict-note').textContent = 'Не закрывай страницу: тестовый мир уже запущен.';
   } else if (fails.length) {
     verdict.dataset.state = 'fail';
-    $('verdict-title').textContent = `Релиз с проблемой: ${fails.length} ${fails.length === 1 ? 'сбой' : 'сбоя(ев)'}`;
+    $('verdict-title').textContent = `Релиз с проблемой, сбоев: ${fails.length}`;
     $('verdict-note').textContent = `${fails.map((f) => f.name).join('; ')}. ${manualNote}`;
   } else if (manualDone < MANUAL.length) {
     verdict.dataset.state = 'warn';
@@ -364,15 +364,18 @@ async function runAll() {
     win = frame.contentWindow;
     win.addEventListener('error', (e) => runtimeErrors.push(e.message));
     win.addEventListener('unhandledrejection', (e) => runtimeErrors.push(String(e.reason)));
-    const fatal = win.document.getElementById('fatal');
-    if (fatal && !fatal.hidden) throw new Error(fatal.textContent);
-    game = await until(() => win.game, 'игра не запустилась');
+    game = await until(() => {
+      const fatal = win.document.getElementById('fatal');
+      if (fatal && !fatal.hidden) throw new Error(fatal.textContent);
+      return win.game;
+    }, 'игра не запустилась');
     return ['pass', `Three.js r${win.THREE.REVISION}`];
   }, 30000);
 
-  const dependents = [c.world, c.fps, c.controls, c.mine, c.place, c.craft, c.zombieHit, c.playerHit, c.night, c.errors];
   if (!booted) {
-    if (id === runId) dependents.forEach((entry) => entry.update('fail', 'игра не запустилась'));
+    if (id === runId) {
+      results.filter((entry) => entry.state === 'wait').forEach((entry) => entry.update('fail', 'игра не запустилась'));
+    }
     return;
   }
 
